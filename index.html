@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>tive</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --background: light-dark(#ffffff, #181818);
+      --segment: #f1f5f9;
+      --day: #e2e8f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      background: var(--background);
+      padding: 24px 16px;
+      font-family: system-ui, sans-serif;
+      color: light-dark(#475569, #cbd5e1);
+    }
+    main { width: 100%; max-width: 600px; min-width: 0; }
+    svg { display: block; width: 100%; height: auto; }
+    .time-control { display: grid; gap: 12px; }
+    .time-label { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 12px; font-size: 14px; }
+    output { font-variant-numeric: tabular-nums; }
+    input[type="range"] { appearance: none; width: 100%; margin: 0; background: transparent; min-height: 44px; cursor: grab; }
+    input[type="range"]:active { cursor: grabbing; }
+    input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: var(--segment); }
+    input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--segment); }
+    input[type="range"]::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; margin-top: -5px; border: 0; border-radius: 50%; background: #94a3b8; cursor: inherit; }
+    input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: 0; border-radius: 50%; background: #94a3b8; cursor: inherit; }
+    .time-actions { display: flex; justify-content: center; }
+    button {
+      font: inherit;
+      font-size: 14px;
+      color: inherit;
+      background: var(--segment);
+      border: 0;
+      border-radius: 9999px;
+      padding: 8px 16px;
+      min-height: 44px;
+      cursor: pointer;
+    }
+    button:hover { background: var(--day); }
+    .segment { fill: var(--segment); }
+    .separator { stroke: var(--background); stroke-width: 2px; stroke-linecap: butt; vector-effect: non-scaling-stroke; }
+    .boundary-dash { stroke: #ffffff; stroke-width: 2px; stroke-dasharray: 4 4; stroke-linecap: butt; vector-effect: non-scaling-stroke; }
+    .day { fill: var(--day); }
+    .hour-tick { stroke: var(--background); stroke-width: 1.4; stroke-linecap: butt; }
+    .active-tick { stroke: #cbd5e1; stroke-width: 1.4; stroke-linecap: butt; }
+  </style>
+</head>
+<body>
+  <main>
+  <svg id="week" viewBox="0 0 540 540" role="img" aria-labelledby="title description">
+    <title id="title">Wochenkreis mit Tageskreis</title>
+    <desc id="description">Sieben Segmente bilden eine Woche. Samstag liegt unten rechts, Sonntag unten links. Ein Kreis mit 24 Stundenstrichen zeigt den Zeitpunkt, der über den Regler unterhalb eingestellt werden kann. Der verlängerte Strich der gewählten Stunde ist weiß. Zeitzone: Berlin.</desc>
+    <g id="segments"></g>
+    <g id="separators" aria-hidden="true"></g>
+    <g id="day-position">
+      <circle class="day" r="43.74" />
+      <g id="hour-ticks"></g>
+      <line id="active-tick" class="active-tick" x1="0" y1="0" x2="0" y2="-43.74" />
+      <circle cx="0" cy="0" r="3" fill="#cbd5e1" />
+    </g>
+    <g id="boundary-dashes" aria-hidden="true"></g>
+  </svg>
+    <div class="time-control">
+      <div class="time-label">
+        <label for="week-time">Zeit</label>
+        <output id="selected-time" for="week-time"></output>
+      </div>
+      <input id="week-time" type="range" min="0" max="10079" step="1" aria-label="Zeitpunkt innerhalb der Woche">
+      <div class="time-actions"><button id="now" type="button">Jetzt</button></div>
+    </div>
+  </main>
+  <script>
+    (() => {
+      const tau = Math.PI * 2;
+      const weekOffset = -5 * Math.PI / 7;
+      const sliderStart = 6 * 86400; // Sunday, 00:00: the boundary at the bottom.
+      const orbitRadius = 177.39;
+      const baseHalfWidth = 20.655;
+      const bulgeHalfWidth = 53.08;
+      const segments = document.getElementById('segments');
+      const separators = document.getElementById('separators');
+      const boundaryDashes = document.getElementById('boundary-dashes');
+      const position = document.getElementById('day-position');
+      const ticks = document.getElementById('hour-ticks');
+      const activeTick = document.getElementById('active-tick');
+      const slider = document.getElementById('week-time');
+      const timeOutput = document.getElementById('selected-time');
+      const dayLabels = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+      let selectedSeconds = null;
+      for (let hour = 0; hour < 24; hour++) {
+        const angle = hour * tau / 24;
+        const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        const innerRadius = 43.74 - (hour % 2 === 0 ? 6.5 : 3.5);
+        tick.setAttribute('x1', Math.sin(angle) * innerRadius);
+        tick.setAttribute('y1', -Math.cos(angle) * innerRadius);
+        tick.setAttribute('x2', Math.sin(angle) * 43.74);
+        tick.setAttribute('y2', -Math.cos(angle) * 43.74);
+        tick.setAttribute('class', 'hour-tick');
+        ticks.appendChild(tick);
+      }
+      const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const formatter = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/Berlin', weekday: 'short',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+      });
+      const point = (radius, angle) => [270 + radius * Math.sin(angle), 270 - radius * Math.cos(angle)];
+      for (let day = 0; day < 7; day++) {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('class', 'segment');
+        segments.appendChild(path);
+        const [x, y] = point(270, weekOffset + day * tau / 7);
+        const separator = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        separator.setAttribute('class', 'separator');
+        separator.setAttribute('x1', 270);
+        separator.setAttribute('y1', 270);
+        separator.setAttribute('x2', x);
+        separator.setAttribute('y2', y);
+        separators.appendChild(separator);
+        const dash = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        dash.setAttribute('class', 'boundary-dash');
+        boundaryDashes.appendChild(dash);
+      }
+      function drawSegments(dayAngle) {
+        [...boundaryDashes.children].forEach((line, boundary) => {
+          const angle = weekOffset + boundary * tau / 7;
+          const distance = Math.atan2(Math.sin(angle - dayAngle), Math.cos(angle - dayAngle));
+          const halfWidth = baseHalfWidth + (bulgeHalfWidth - baseHalfWidth) * Math.exp(-.5 * (distance / .25) ** 2);
+          const [x1, y1] = point(orbitRadius - halfWidth, angle);
+          const [x2, y2] = point(orbitRadius + halfWidth, angle);
+          line.setAttribute('x1', x1);
+          line.setAttribute('y1', y1);
+          line.setAttribute('x2', x2);
+          line.setAttribute('y2', y2);
+        });
+        [...segments.children].forEach((path, day) => {
+          const start = weekOffset + day * tau / 7;
+          const end = weekOffset + (day + 1) * tau / 7;
+          const outer = [], inner = [];
+          for (let step = 0; step <= 96; step++) {
+            const angle = start + (end - start) * step / 96;
+            // Wrapped distance keeps the bulge continuous across Sunday and Monday.
+            const distance = Math.atan2(Math.sin(angle - dayAngle), Math.cos(angle - dayAngle));
+            const bulge = Math.exp(-.5 * (distance / .25) ** 2);
+            const halfWidth = baseHalfWidth + (bulgeHalfWidth - baseHalfWidth) * bulge;
+            outer.push(point(orbitRadius + halfWidth, angle));
+            inner.push(point(orbitRadius - halfWidth, angle));
+          }
+          path.setAttribute('d', 'M' + outer.concat(inner.reverse()).map(p => p.map(v => v.toFixed(3)).join(',')).join(' L') + ' Z');
+        });
+      }
+      let activeDay = -1;
+      function update() {
+        const now = new Date();
+        const parts = Object.fromEntries(formatter.formatToParts(now).map(part => [part.type, part.value]));
+        const weekSeconds = selectedSeconds ?? (weekdays.indexOf(parts.weekday) * 86400 + Number(parts.hour) * 3600 + Number(parts.minute) * 60 + Number(parts.second) + now.getMilliseconds() / 1000);
+        const day = Math.floor(weekSeconds / 86400);
+        const daySeconds = weekSeconds % 86400;
+        const angle = weekOffset + (day * 86400 + daySeconds) / 604800 * tau;
+        drawSegments(angle);
+        const [x, y] = point(orbitRadius, angle);
+        position.setAttribute('transform', `translate(${x} ${y})`);
+        const hour = Math.floor(daySeconds / 3600);
+        const minute = Math.floor(daySeconds % 3600 / 60);
+        const label = `${dayLabels[day]}, ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+        timeOutput.textContent = label;
+        slider.value = Math.floor(((weekSeconds - sliderStart + 604800) % 604800) / 60);
+        slider.setAttribute('aria-valuetext', label);
+        activeTick.setAttribute('transform', `rotate(${daySeconds / 86400 * 360})`);
+        if (day !== activeDay) {
+          [...segments.children].forEach((segment, index) => segment.classList.toggle('active', index === day));
+          activeDay = day;
+        }
+      }
+      slider.addEventListener('input', () => {
+        selectedSeconds = (sliderStart + Number(slider.value) * 60) % 604800;
+        update();
+      });
+      document.getElementById('now').addEventListener('click', () => {
+        selectedSeconds = null;
+        update();
+      });
+      update();
+      setInterval(() => { if (selectedSeconds === null) update(); }, 100);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
+    })();
+  </script>
+</body>
+</html>
