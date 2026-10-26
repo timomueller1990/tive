@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -57,8 +57,8 @@
 <body>
   <main>
   <svg id="week" viewBox="0 0 540 540" role="img" aria-labelledby="title description">
-    <title id="title">Wochenkreis mit Tageskreis</title>
-    <desc id="description">Sieben Segmente bilden eine Woche. Samstag liegt unten rechts, Sonntag unten links. Ein Kreis mit 24 Stundenstrichen zeigt den Zeitpunkt, der über den Regler unterhalb eingestellt werden kann. Der verlängerte Strich der gewählten Stunde ist weiß. Zeitzone: Berlin.</desc>
+    <title id="title">Weekly ring with daily clock</title>
+    <desc id="description">Seven segments form a week. Saturday is at the bottom right, Sunday at the bottom left. A circle with 24 hour ticks shows the time selected using the slider below. A slate hand moves continuously around the daily clock. Time zone: Berlin.</desc>
     <g id="segments"></g>
     <g id="separators" aria-hidden="true"></g>
     <g id="day-position">
@@ -71,11 +71,11 @@
   </svg>
     <div class="time-control">
       <div class="time-label">
-        <label for="week-time">Zeit</label>
+        <label for="week-time">Time</label>
         <output id="selected-time" for="week-time"></output>
       </div>
-      <input id="week-time" type="range" min="0" max="10079" step="1" aria-label="Zeitpunkt innerhalb der Woche">
-      <div class="time-actions"><button id="now" type="button">Jetzt</button></div>
+      <input id="week-time" type="range" min="0" max="10079" step="1" aria-label="Time within the week">
+      <div class="time-actions"><button id="now" type="button">Now</button></div>
     </div>
   </main>
   <script>
@@ -94,7 +94,7 @@
       const activeTick = document.getElementById('active-tick');
       const slider = document.getElementById('week-time');
       const timeOutput = document.getElementById('selected-time');
-      const dayLabels = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+      const dayLabels = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
       let selectedSeconds = null;
       for (let hour = 0; hour < 24; hour++) {
         const angle = hour * tau / 24;
